@@ -4,6 +4,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.example.android8_lesson1_homework.model.Marker
 import com.example.android8_lesson1_homework.model.Repository
+import kotlinx.coroutines.*
 
 class MainViewModel(
     private val liveDataToObserve: MutableLiveData<AppState>,
@@ -13,6 +14,26 @@ class MainViewModel(
 
 ) {
     private var marker: Marker? = null
+
+    val viewModelCoroutineScope = CoroutineScope(
+        Dispatchers.Main
+                + SupervisorJob()
+                + CoroutineExceptionHandler { _, throwable ->
+            handleError(throwable)
+        })
+
+    fun cancelJob() {
+        viewModelCoroutineScope.coroutineContext.cancelChildren()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        cancelJob()
+    }
+
+    fun handleError(error: Throwable) {
+        liveDataToObserve.postValue(AppState.Error(error))
+    }
 
     fun getLiveData() = liveDataToObserve
     fun getLiveDataSingle() = liveDataToObserveSingle
@@ -25,14 +46,15 @@ class MainViewModel(
         latitude: Double,
         longitude: Double
     ) {
-        Thread {
+        cancelJob()
+        viewModelCoroutineScope.launch {
             repo.setMarker(
                 Marker(
                     latitude = latitude,
                     longitude = longitude
                 )
             )
-        }.start()
+        }
 
     }
 
@@ -49,9 +71,10 @@ class MainViewModel(
 
     fun setMarkerById() {
         marker?.let {
-            Thread {
+            cancelJob()
+            viewModelCoroutineScope.launch {
                 repo.setMarker(it)
-            }.start()
+            }
         }
 
 
@@ -62,28 +85,21 @@ class MainViewModel(
         longitude: Double
     ) {
         liveDataToObserveSingle.value = AppStateSingle.Loading
-        Thread {
+        cancelJob()
+        viewModelCoroutineScope.launch {
             marker = repo.getDataByLatitudeAndLongitude(latitude, longitude)
             marker?.let {
                 liveDataToObserveSingle.postValue(AppStateSingle.Success(it))
             }
 
-        }.start()
-    }
-
-    private fun getMarkerByIdFromLocalStorage(
-        id: Int
-    ) {
-        liveDataToObserveSingle.value = AppStateSingle.Loading
-        Thread {
-            liveDataToObserveSingle.postValue(AppStateSingle.Success(repo.getMarker(id)))
-        }.start()
+        }
     }
 
     private fun getAllMarkersFromLocalStorage() {
         liveDataToObserve.value = AppState.Loading
-        Thread {
+        cancelJob()
+        viewModelCoroutineScope.launch {
             liveDataToObserve.postValue(AppState.Success(repo.getMarkers()))
-        }.start()
+        }
     }
 }

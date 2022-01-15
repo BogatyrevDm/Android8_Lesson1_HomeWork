@@ -6,7 +6,7 @@ import com.example.android8_lesson1_homework.utils.convertMarkerEntityToModel
 import com.example.android8_lesson1_homework.utils.convertModelToMarkerEntity
 
 class RepositoryImp(private val markersDao: MarkersDao) : Repository {
-    override fun setMarker(marker: Marker) {
+    override suspend fun setMarker(marker: Marker) {
         if (marker.id == 0) {
             markersDao.insert(convertModelToMarkerEntity(marker))
         } else {
@@ -14,12 +14,12 @@ class RepositoryImp(private val markersDao: MarkersDao) : Repository {
         }
     }
 
-    override fun getMarker(id: Int): Marker =
+    override suspend fun getMarker(id: Int): Marker =
         convertMarkerEntityToModel(markersDao.getDataById(id))
 
 
-    override fun getDataByLatitudeAndLongitude(latitude: Double, longitude: Double): Marker =
+    override suspend fun getDataByLatitudeAndLongitude(latitude: Double, longitude: Double): Marker =
         convertMarkerEntityToModel(markersDao.getDataByLatitudeAndLongitude(latitude, longitude))
 
-    override fun getMarkers(): List<Marker> = convertMarkerEntityListToModel(markersDao.all())
+    override suspend fun getMarkers(): List<Marker> = convertMarkerEntityListToModel(markersDao.all())
 }

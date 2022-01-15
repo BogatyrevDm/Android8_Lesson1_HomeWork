@@ -5,23 +5,23 @@ import androidx.room.*
 @Dao
 interface MarkersDao {
     @Query("SELECT * FROM MarkerEntity")
-    fun all(): List<MarkerEntity>
+    suspend fun all(): List<MarkerEntity>
 
     @Query("SELECT * FROM MarkerEntity WHERE id = :id")
-    fun getDataById(id: Int): MarkerEntity
+    suspend fun getDataById(id: Int): MarkerEntity
 
     @Query("SELECT * FROM MarkerEntity WHERE latitude = :latitude AND longitude = :longitude")
-    fun getDataByLatitudeAndLongitude(latitude:Double, longitude:Double): MarkerEntity
+    suspend fun getDataByLatitudeAndLongitude(latitude:Double, longitude:Double): MarkerEntity
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun insert(entity: MarkerEntity)
+    suspend fun insert(entity: MarkerEntity)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun insertAll(entities: List<MarkerEntity>)
+    suspend fun insertAll(entities: List<MarkerEntity>)
 
     @Update
-    fun update(entity: MarkerEntity)
+    suspend fun update(entity: MarkerEntity)
 
     @Delete
-    fun delete(entity: MarkerEntity)
+    suspend fun delete(entity: MarkerEntity)
 }
