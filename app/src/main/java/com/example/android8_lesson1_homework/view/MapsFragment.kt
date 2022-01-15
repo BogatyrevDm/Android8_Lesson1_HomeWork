@@ -6,27 +6,29 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
-import androidx.fragment.app.Fragment
-
 import android.os.Bundle
 import android.view.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import com.example.android8_lesson1_homework.R
 import com.example.android8_lesson1_homework.databinding.FragmentMapsBinding
 import com.example.android8_lesson1_homework.utils.showSnackBar
 import com.example.android8_lesson1_homework.viewmodel.AppState
 import com.example.android8_lesson1_homework.viewmodel.MainViewModel
-
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.*
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.Marker
+import com.google.android.gms.maps.model.MarkerOptions
 import org.koin.android.viewmodel.ext.android.viewModel
 
-private const val REQUEST_CODE = 12345
+
 private const val REFRESH_PERIOD = 60000L
 private const val MINIMAL_DISTANCE = 100f
 
@@ -34,7 +36,7 @@ class MapsFragment : Fragment() {
     private var _binding: FragmentMapsBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var map: GoogleMap
+    private var map: GoogleMap? = null
 
     private val mainViewModel: MainViewModel by viewModel()
 
@@ -47,8 +49,8 @@ class MapsFragment : Fragment() {
         googleMap.setOnMarkerClickListener() {
             onMarkerClick(it)
         }
-        activateMyLocation(googleMap)
         getLocation()
+        activateMyLocation()
         initViewModel()
     }
 
@@ -74,7 +76,7 @@ class MapsFragment : Fragment() {
     }
 
     private fun setMarker(location: LatLng, searchText: String? = null, resourceId: Int) {
-        map.addMarker(
+        map?.addMarker(
             MarkerOptions()
                 .position(location)
                 .title(searchText ?: "")
@@ -86,13 +88,13 @@ class MapsFragment : Fragment() {
         super.onCreate(savedInstanceState)
         setHasOptionsMenu(true)
     }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentMapsBinding.inflate(inflater, container, false)
-
         return binding.root
     }
 
@@ -123,6 +125,7 @@ class MapsFragment : Fragment() {
             else -> super.onOptionsItemSelected(item)
         }
     }
+
     fun initViewModel() {
         mainViewModel.getLiveData().observe(viewLifecycleOwner, Observer { renderData(it) })
         mainViewModel.getAllMarkers()
@@ -165,10 +168,6 @@ class MapsFragment : Fragment() {
                         PackageManager.PERMISSION_GRANTED -> {
                     getLocation()
                 }
-                shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) -> {
-
-                    showRationaleDialog()
-                }
                 else -> {
                     requestPermission()
                 }
@@ -184,7 +183,7 @@ class MapsFragment : Fragment() {
                     location.latitude,
                     location.longitude
                 )
-                map.moveCamera(
+                map?.moveCamera(
                     CameraUpdateFactory.newLatLngZoom(
                         coordinates,
                         15f
@@ -198,14 +197,18 @@ class MapsFragment : Fragment() {
         override fun onProviderDisabled(provider: String) {}
     }
 
-    private fun activateMyLocation(googleMap: GoogleMap) {
-        context?.let {
-            val isPermissionGranted =
-                ContextCompat.checkSelfPermission(it, Manifest.permission.ACCESS_FINE_LOCATION) ==
-                        PackageManager.PERMISSION_GRANTED
-            googleMap.isMyLocationEnabled = isPermissionGranted
-            googleMap.uiSettings.isMyLocationButtonEnabled = isPermissionGranted
-
+    private fun activateMyLocation() {
+        activity?.let { activity ->
+            map?.let { map ->
+                val isPermissionGranted =
+                    ContextCompat.checkSelfPermission(
+                        activity,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) ==
+                            PackageManager.PERMISSION_GRANTED
+                map.isMyLocationEnabled = isPermissionGranted
+                map.uiSettings.isMyLocationButtonEnabled = isPermissionGranted
+            }
         }
     }
 
@@ -245,55 +248,27 @@ class MapsFragment : Fragment() {
                         )
                     }
                 }
-            } else {
-                showRationaleDialog()
             }
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>, grantResults: IntArray
-    ) {
-        checkPermissionsResult(requestCode, grantResults)
+    val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            getLocation()
+            activateMyLocation()
+        } else {
+            showDialog(
+                getString(R.string.dialog_title_no_gps),
+                getString(R.string.dialog_message_no_gps)
+            )
+        }
+
     }
 
     private fun requestPermission() {
-        requestPermissions(
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_CODE
-
-        )
-    }
-
-    private fun checkPermissionsResult(requestCode: Int, grantResults: IntArray) {
-        when (requestCode) {
-            REQUEST_CODE -> {
-                var grantedPermissions = 0;
-                if (grantResults.isNotEmpty()) {
-                    for (i in grantResults) {
-                        if (i == PackageManager.PERMISSION_GRANTED) {
-                            grantedPermissions++
-                        }
-                    }
-                    if (grantResults.size == grantedPermissions) {
-                        getLocation()
-                    } else {
-                        showDialog(
-                            getString(R.string.dialog_title_no_gps),
-                            getString(R.string.dialog_message_no_gps)
-                        )
-                    }
-
-
-                } else {
-                    showDialog(
-                        getString(R.string.dialog_title_no_gps),
-                        getString(R.string.dialog_message_no_gps)
-                    )
-                }
-
-            }
-        }
+        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
 
     }
 
@@ -305,17 +280,6 @@ class MapsFragment : Fragment() {
                 }
                 .create()
                 .show()
-        }
-    }
-
-    private fun showRationaleDialog() {
-        activity?.let {
-            AlertDialog.Builder(it).setTitle(R.string.dialog_rationale_title).setMessage(R.string.dialog_rationale_meaasge)
-                .setPositiveButton(R.string.dialog_rationale_give_access) { _, _ ->
-                    requestPermission()
-                }.setNegativeButton(R.string.dialog_rationale_decline) { dialog, _ ->
-                    dialog.dismiss()
-                }.create().show()
         }
     }
 
